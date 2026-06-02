@@ -1,3 +1,6 @@
 [project]
 name = "apptrack"
 requires-python = ">=3.12"
+
+[tool.vercel]
+entrypoint = "app.main:app"
