@@ -11,7 +11,6 @@ from google.genai.errors import ClientError
 from pydantic import BaseModel
 
 from app.classify.base import ClassificationResult, Classifier
-from app.classify.rate_limit import retry_delay_seconds, wait_for_turn
 from app.config import get_settings
 
 SYSTEM_PROMPT = """You classify a single email related to a job application. Output ONLY JSON matching the schema.
@@ -40,6 +39,13 @@ class JobClassificationSchema(BaseModel):
     confidence: float = 0.0
 
 
+def _retry_delay_seconds(error: ClientError, default: float = 15.0) -> float:
+    match = re.search(r"retry in ([\d.]+)s", str(error), re.I)
+    if match:
+        return float(match.group(1)) + 1.0
+    return default
+
+
 class GeminiClassifier(Classifier):
     def __init__(self) -> None:
         settings = get_settings()
@@ -47,7 +53,6 @@ class GeminiClassifier(Classifier):
             raise RuntimeError("GEMINI_API_KEY is not configured")
         self._client = genai.Client(api_key=settings.gemini_api_key)
         self._model = settings.gemini_model
-        self._min_interval = settings.gemini_min_interval_seconds
         self._max_retries = settings.gemini_max_retries
 
     async def classify(
@@ -63,7 +68,6 @@ class GeminiClassifier(Classifier):
 
         last_error: Exception | None = None
         for attempt in range(self._max_retries):
-            await wait_for_turn(self._min_interval)
             try:
                 response = await self._client.aio.models.generate_content(
                     model=self._model,
@@ -78,7 +82,7 @@ class GeminiClassifier(Classifier):
             except ClientError as exc:
                 last_error = exc
                 if exc.code == 429 and attempt < self._max_retries - 1:
-                    await asyncio.sleep(retry_delay_seconds(exc))
+                    await asyncio.sleep(_retry_delay_seconds(exc))
                     continue
                 raise
 

@@ -21,8 +21,6 @@ class Settings(BaseSettings):
 
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
-    gemini_min_interval_seconds: float = 13.0
-    gemini_max_calls_per_sync: int = 4
     gemini_max_retries: int = 3
 
     cron_secret: str = ""

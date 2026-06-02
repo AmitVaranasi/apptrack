@@ -7,17 +7,16 @@
   <div class="bg-emerald-900/30 border border-emerald-800 text-emerald-300 px-4 py-3 rounded-lg text-sm space-y-1">
     <div>
       Synced {{ result.stored }} new emails ({{ result.scanned }} scanned, {{ result.candidates }} candidates)
+      {% if result.incremental %} · incremental{% endif %}
       {% if synced_at %} · {{ synced_at }}{% endif %}
     </div>
-    {% if result.stopped_early %}
-    <div class="text-amber-300">
-      Free-tier rate limit reached. Click <strong>Sync Gmail</strong> again to process more emails (~4 per sync).
-    </div>
-    {% endif %}
     {% if result.errors %}
     <div class="text-amber-300">{{ result.errors }} email(s) could not be classified this run.</div>
     {% endif %}
   </div>
   {% endif %}
+  <div id="review-queue">
+    {% include "partials/review_queue.html" %}
+  </div>
   {% include "partials/board.html" %}
 </div>

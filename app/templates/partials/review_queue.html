@@ -1,0 +1,39 @@
+{% if review_emails %}
+<section class="border border-amber-900/50 rounded-xl bg-amber-950/20 overflow-hidden">
+  <div class="px-4 py-2 border-b border-amber-900/40 flex items-center justify-between">
+    <h2 class="text-sm font-semibold text-amber-300">Needs review ({{ review_emails|length }})</h2>
+  </div>
+  <ul class="divide-y divide-amber-900/30">
+    {% for email in review_emails %}
+    <li class="px-4 py-3 flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <div class="text-sm font-medium text-white truncate">{{ email.company }}{% if email.role %} · {{ email.role }}{% endif %}</div>
+        <a href="{{ gmail_link(email.gmail_message_id) }}" target="_blank"
+           class="text-xs text-indigo-400 hover:text-indigo-300 block truncate mt-1">
+          {{ email.subject or "(no subject)" }}
+        </a>
+        {% if email.detected_stage %}
+        <span class="inline-block mt-1 text-xs text-amber-400/80">
+          guessed: {{ stage_labels.get(email.detected_stage, email.detected_stage) }}
+        </span>
+        {% endif %}
+      </div>
+      <div class="flex flex-col gap-1 shrink-0">
+        <button
+          hx-get="/app/{{ email.application_id }}"
+          hx-target="#detail-panel"
+          class="text-xs text-indigo-400 hover:text-indigo-300">
+          Open
+        </button>
+        <button
+          hx-post="/review/{{ email.id }}/dismiss"
+          hx-target="#review-queue"
+          class="text-xs text-slate-400 hover:text-white">
+          Dismiss
+        </button>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}

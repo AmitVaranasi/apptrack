@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 from google.oauth2.credentials import Credentials
 
 from app.config import get_settings
@@ -19,6 +20,10 @@ class GmailMessage:
     snippet: str
     received_at: datetime | None
     body: str | None = None
+
+
+class HistoryIdTooOldError(Exception):
+    pass
 
 
 def _build_service(access_token: str):
@@ -67,6 +72,15 @@ def _extract_body(payload: dict) -> str:
     return ""
 
 
+async def get_profile_history_id(access_token: str) -> str:
+    service = _build_service(access_token)
+    profile = service.users().getProfile(userId="me").execute()
+    history_id = profile.get("historyId")
+    if not history_id:
+        raise RuntimeError("Gmail profile did not return historyId")
+    return str(history_id)
+
+
 async def list_message_ids(access_token: str, days: int | None = None) -> list[str]:
     service = _build_service(access_token)
     days = days or get_settings().gmail_sync_days
@@ -87,6 +101,41 @@ async def list_message_ids(access_token: str, days: int | None = None) -> list[s
         if not page_token:
             break
     return ids
+
+
+async def list_history_message_ids(access_token: str, start_history_id: str) -> list[str]:
+    service = _build_service(access_token)
+    ids: set[str] = set()
+    page_token = None
+
+    try:
+        while True:
+            result = (
+                service.users()
+                .history()
+                .list(
+                    userId="me",
+                    startHistoryId=start_history_id,
+                    historyTypes=["messageAdded"],
+                    pageToken=page_token,
+                    maxResults=100,
+                )
+                .execute()
+            )
+            for record in result.get("history", []):
+                for added in record.get("messagesAdded", []):
+                    message = added.get("message", {})
+                    if message.get("id"):
+                        ids.add(message["id"])
+            page_token = result.get("nextPageToken")
+            if not page_token:
+                break
+    except HttpError as exc:
+        if exc.resp.status == 404:
+            raise HistoryIdTooOldError from exc
+        raise
+
+    return list(ids)
 
 
 async def get_message_metadata(access_token: str, message_id: str) -> GmailMessage:

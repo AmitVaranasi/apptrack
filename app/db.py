@@ -69,6 +69,65 @@ async def get_gmail_account(user_id: uuid.UUID) -> asyncpg.Record | None:
         )
 
 
+async def list_gmail_accounts() -> list[asyncpg.Record]:
+    async with get_conn() as conn:
+        return await conn.fetch(
+            "select * from gmail_accounts order by created_at asc",
+        )
+
+
+async def update_last_history_id(user_id: uuid.UUID, history_id: str) -> None:
+    async with get_conn() as conn:
+        await conn.execute(
+            "update gmail_accounts set last_history_id = $2 where user_id = $1",
+            user_id,
+            history_id,
+        )
+
+
+async def update_last_synced_at(user_id: uuid.UUID, synced_at: datetime) -> None:
+    async with get_conn() as conn:
+        await conn.execute(
+            "update gmail_accounts set last_synced_at = $2 where user_id = $1",
+            user_id,
+            synced_at,
+        )
+
+
+async def get_review_emails(user_id: uuid.UUID) -> list[asyncpg.Record]:
+    async with get_conn() as conn:
+        return await conn.fetch(
+            """
+            select e.id, e.gmail_message_id, e.subject, e.from_addr, e.received_at,
+                   e.confidence, e.detected_stage::text as detected_stage,
+                   a.id as application_id, a.company, a.role
+            from emails e
+            join applications a on a.id = e.application_id
+            where a.user_id = $1 and e.needs_review = true
+            order by e.received_at desc nulls last
+            """,
+            user_id,
+        )
+
+
+async def dismiss_email_review(user_id: uuid.UUID, email_id: uuid.UUID) -> bool:
+    async with get_conn() as conn:
+        result = await conn.execute(
+            """
+            update emails e
+            set needs_review = false
+            from applications a
+            where e.application_id = a.id
+              and a.user_id = $1
+              and e.id = $2
+              and e.needs_review = true
+            """,
+            user_id,
+            email_id,
+        )
+        return result.endswith("1")
+
+
 async def get_applications(user_id: uuid.UUID) -> list[asyncpg.Record]:
     async with get_conn() as conn:
         return await conn.fetch(
@@ -96,7 +155,7 @@ async def get_application_emails(app_id: uuid.UUID) -> list[asyncpg.Record]:
             """
             select * from emails
             where application_id = $1
-            order by received_at desc nulls last
+            order by received_at asc nulls last
             """,
             app_id,
         )

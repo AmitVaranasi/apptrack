@@ -4,15 +4,18 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from google.genai.errors import ClientError
-
 from app.auth.google_oauth import decrypt_token, refresh_access_token
 from app.classify.base import Classifier
 from app.classify.gemini import GeminiClassifier
 from app.classify.prefilter import is_likely_job_email
-from app.config import get_settings
 from app import db
-from app.gmail.client import get_message_metadata, list_message_ids
+from app.gmail.client import (
+    HistoryIdTooOldError,
+    get_message_metadata,
+    get_profile_history_id,
+    list_history_message_ids,
+    list_message_ids,
+)
 
 
 @dataclass
@@ -22,7 +25,7 @@ class SyncResult:
     classified: int
     stored: int
     skipped_existing: int
-    stopped_early: bool = False
+    incremental: bool = False
     errors: int = 0
 
 
@@ -53,28 +56,29 @@ async def _store_classification(
     )
 
 
-async def run_sync(user_id: uuid.UUID, classifier: Classifier | None = None) -> SyncResult:
-    account = await db.get_gmail_account(user_id)
-    if not account:
-        raise ValueError("Gmail account not found")
+async def _message_ids_for_sync(access_token: str, last_history_id: str | None) -> tuple[list[str], bool]:
+    if last_history_id:
+        try:
+            ids = await list_history_message_ids(access_token, last_history_id)
+            return ids, True
+        except HistoryIdTooOldError:
+            pass
+    ids = await list_message_ids(access_token)
+    return ids, False
 
-    settings = get_settings()
-    refresh_token = decrypt_token(account["refresh_token"])
-    access_token = await refresh_access_token(refresh_token)
 
-    if classifier is None:
-        classifier = GeminiClassifier()
-
-    message_ids = await list_message_ids(access_token)
+async def _process_messages(
+    user_id: uuid.UUID,
+    access_token: str,
+    message_ids: list[str],
+    classifier: Classifier,
+) -> SyncResult:
     scanned = len(message_ids)
     candidates = 0
     classified = 0
     stored = 0
     skipped_existing = 0
-    stopped_early = False
     errors = 0
-    gemini_calls = 0
-    max_calls = settings.gemini_max_calls_per_sync
 
     for msg_id in message_ids:
         if await db.email_exists(msg_id):
@@ -87,27 +91,13 @@ async def run_sync(user_id: uuid.UUID, classifier: Classifier | None = None) -> 
 
         candidates += 1
 
-        if gemini_calls >= max_calls:
-            stopped_early = True
-            break
-
         try:
             result = await classifier.classify(
                 meta.subject,
                 meta.from_addr,
                 meta.snippet,
             )
-            gemini_calls += 1
-        except ClientError as exc:
-            gemini_calls += 1
-            if exc.code == 429:
-                stopped_early = True
-                errors += 1
-                break
-            errors += 1
-            continue
         except Exception:
-            gemini_calls += 1
             errors += 1
             continue
 
@@ -124,6 +114,45 @@ async def run_sync(user_id: uuid.UUID, classifier: Classifier | None = None) -> 
         classified=classified,
         stored=stored,
         skipped_existing=skipped_existing,
-        stopped_early=stopped_early,
         errors=errors,
     )
+
+
+async def run_sync(user_id: uuid.UUID, classifier: Classifier | None = None) -> SyncResult:
+    account = await db.get_gmail_account(user_id)
+    if not account:
+        raise ValueError("Gmail account not found")
+
+    refresh_token = decrypt_token(account["refresh_token"])
+    access_token = await refresh_access_token(refresh_token)
+
+    if classifier is None:
+        classifier = GeminiClassifier()
+
+    message_ids, incremental = await _message_ids_for_sync(
+        access_token,
+        account["last_history_id"],
+    )
+    result = await _process_messages(user_id, access_token, message_ids, classifier)
+    result.incremental = incremental
+
+    history_id = await get_profile_history_id(access_token)
+    await db.update_last_history_id(user_id, history_id)
+    await db.update_last_synced_at(user_id, datetime.now(timezone.utc))
+
+    return result
+
+
+async def run_sync_all(classifier: Classifier | None = None) -> list[tuple[uuid.UUID, SyncResult | str]]:
+    accounts = await db.list_gmail_accounts()
+    results: list[tuple[uuid.UUID, SyncResult | str]] = []
+
+    for account in accounts:
+        user_id = account["user_id"]
+        try:
+            result = await run_sync(user_id, classifier=classifier)
+            results.append((user_id, result))
+        except Exception as exc:
+            results.append((user_id, str(exc)))
+
+    return results

@@ -21,6 +21,26 @@ def _gmail_link(message_id: str) -> str:
     return f"https://mail.google.com/mail/u/0/#all/{message_id}"
 
 
+@router.post("/review/{email_id}/dismiss", response_class=HTMLResponse)
+async def dismiss_review(
+    request: Request,
+    email_id: uuid.UUID,
+    user_id: uuid.UUID = Depends(require_user),
+):
+    await db.dismiss_email_review(user_id, email_id)
+    review_emails = await db.get_review_emails(user_id)
+    return templates.TemplateResponse(
+        request,
+        "partials/review_queue.html",
+        {
+            "request": request,
+            "review_emails": review_emails,
+            "stage_labels": STAGE_LABELS,
+            "gmail_link": _gmail_link,
+        },
+    )
+
+
 @router.get("/app/{app_id}", response_class=HTMLResponse)
 async def application_detail(
     request: Request,
