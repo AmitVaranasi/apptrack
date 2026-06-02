@@ -1,0 +1,56 @@
+<div class="border border-slate-800 rounded-xl bg-slate-900/50 overflow-hidden">
+  <div class="px-4 py-3 border-b border-slate-800 flex items-start justify-between">
+    <div>
+      <h2 class="text-lg font-semibold text-white">{{ app.company }}</h2>
+      {% if app.role %}<p class="text-slate-400 text-sm">{{ app.role }}</p>{% endif %}
+      <div class="flex gap-2 mt-2">
+        <span class="text-xs bg-indigo-900/50 text-indigo-300 px-2 py-0.5 rounded">
+          {{ stage_labels.get(app.current_stage, app.current_stage) }}
+        </span>
+        {% if is_ghosted %}
+        <span class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded">Ghosted</span>
+        {% endif %}
+        {% if app.via_referral %}
+        <span class="text-xs bg-emerald-900/50 text-emerald-400 px-2 py-0.5 rounded">Referral</span>
+        {% endif %}
+      </div>
+    </div>
+    <button
+      hx-get="/app/{{ app.id }}/edit"
+      hx-target="#detail-panel"
+      class="text-sm text-indigo-400 hover:text-indigo-300">
+      Edit
+    </button>
+  </div>
+
+  {% if app.notes %}
+  <div class="px-4 py-2 border-b border-slate-800 text-sm text-slate-400">
+    {{ app.notes }}
+  </div>
+  {% endif %}
+
+  <div class="px-4 py-3">
+    <h3 class="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Emails</h3>
+    {% if emails %}
+    <ul class="space-y-2">
+      {% for email in emails %}
+      <li class="border border-slate-800 rounded-lg p-3 bg-slate-950/50">
+        <a href="{{ gmail_link(email.gmail_message_id) }}" target="_blank"
+           class="text-sm font-medium text-indigo-400 hover:text-indigo-300 block truncate">
+          {{ email.subject or "(no subject)" }}
+        </a>
+        <div class="text-xs text-slate-500 mt-1">{{ email.from_addr }}</div>
+        {% if email.received_at %}
+        <div class="text-xs text-slate-600">{{ email.received_at.strftime('%b %d, %Y') }}</div>
+        {% endif %}
+        {% if email.needs_review %}
+        <span class="inline-block mt-1 text-xs bg-amber-900/50 text-amber-400 px-2 py-0.5 rounded">Needs review</span>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-sm text-slate-500">No emails linked yet.</p>
+    {% endif %}
+  </div>
+</div>

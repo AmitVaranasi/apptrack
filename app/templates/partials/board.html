@@ -1,0 +1,48 @@
+<div class="space-y-6">
+  {% if grouped.ghosted %}
+  <section>
+    <h2 class="text-sm font-medium text-slate-500 uppercase tracking-wider mb-3">Ghosted</h2>
+    <div class="grid gap-2">
+      {% for app in grouped.ghosted %}
+      <button
+        hx-get="/app/{{ app.id }}"
+        hx-target="#detail-panel"
+        class="text-left border border-slate-800 rounded-lg p-3 bg-slate-900/30 opacity-60 hover:opacity-100 transition">
+        <div class="font-medium text-slate-300">{{ app.company }}</div>
+        {% if app.role %}<div class="text-sm text-slate-500">{{ app.role }}</div>{% endif %}
+      </button>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+    {% for stage in grouped.stage_order %}
+    <section class="border border-slate-800 rounded-xl bg-slate-900/30 overflow-hidden">
+      <div class="px-4 py-2 border-b border-slate-800 bg-slate-900/50">
+        <h2 class="text-sm font-semibold text-slate-300">{{ grouped.stage_labels[stage] }}</h2>
+        <span class="text-xs text-slate-500">{{ grouped.stages[stage]|length }}</span>
+      </div>
+      <div class="p-2 space-y-2 min-h-[80px]">
+        {% for app in grouped.stages[stage] %}
+        <button
+          hx-get="/app/{{ app.id }}"
+          hx-target="#detail-panel"
+          class="w-full text-left border border-slate-800 rounded-lg p-3 bg-slate-950/50 hover:border-indigo-500/50 hover:bg-slate-900 transition">
+          <div class="font-medium text-white">{{ app.company }}</div>
+          {% if app.role %}<div class="text-sm text-slate-400">{{ app.role }}</div>{% endif %}
+          {% if app.via_referral %}
+          <span class="inline-block mt-1 text-xs bg-emerald-900/50 text-emerald-400 px-2 py-0.5 rounded">Referral</span>
+          {% endif %}
+          {% if app.manual_override %}
+          <span class="inline-block mt-1 text-xs bg-amber-900/50 text-amber-400 px-2 py-0.5 rounded">Edited</span>
+          {% endif %}
+        </button>
+        {% else %}
+        <p class="text-xs text-slate-600 px-2 py-4 text-center">No applications</p>
+        {% endfor %}
+      </div>
+    </section>
+    {% endfor %}
+  </div>
+</div>

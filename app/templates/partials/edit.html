@@ -1,0 +1,66 @@
+<div class="border border-slate-800 rounded-xl bg-slate-900/50 p-4">
+  <h2 class="text-lg font-semibold text-white mb-4">Edit Application</h2>
+  <form method="post" action="/app/{{ app.id }}" class="space-y-4">
+    <div>
+      <label class="block text-sm text-slate-400 mb-1">Company</label>
+      <input name="company" value="{{ app.company }}" required
+             class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm">
+    </div>
+    <div>
+      <label class="block text-sm text-slate-400 mb-1">Role</label>
+      <input name="role" value="{{ app.role or '' }}"
+             class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm">
+    </div>
+    <div>
+      <label class="block text-sm text-slate-400 mb-1">Stage</label>
+      <select name="current_stage"
+              class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm">
+        {% for stage in stage_order %}
+        <option value="{{ stage }}" {% if app.current_stage == stage %}selected{% endif %}>
+          {{ stage_labels[stage] }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="flex items-center gap-2">
+      <input type="checkbox" name="via_referral" value="true" id="via_referral"
+             {% if app.via_referral %}checked{% endif %}
+             class="rounded border-slate-600">
+      <label for="via_referral" class="text-sm text-slate-400">Via referral</label>
+    </div>
+    <div>
+      <label class="block text-sm text-slate-400 mb-1">Notes</label>
+      <textarea name="notes" rows="3"
+                class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm">{{ app.notes or '' }}</textarea>
+    </div>
+    <div class="flex gap-2">
+      <button type="submit"
+              class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium">
+        Save
+      </button>
+      <button type="button"
+              hx-get="/app/{{ app.id }}"
+              hx-target="#detail-panel"
+              class="text-slate-400 hover:text-white px-4 py-2 text-sm">
+        Cancel
+      </button>
+    </div>
+  </form>
+
+  {% if duplicates %}
+  <div class="mt-6 pt-4 border-t border-slate-800">
+    <h3 class="text-sm font-medium text-slate-400 mb-2">Merge duplicate</h3>
+    <ul class="space-y-2">
+      {% for dup in duplicates %}
+      <li class="flex items-center justify-between border border-slate-800 rounded-lg p-2">
+        <span class="text-sm text-slate-300">{{ dup.company }}{% if dup.role %} · {{ dup.role }}{% endif %}</span>
+        <form method="post" action="/app/{{ app.id }}/merge">
+          <input type="hidden" name="source_id" value="{{ dup.id }}">
+          <button type="submit" class="text-xs text-amber-400 hover:text-amber-300">Merge into this</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</div>
