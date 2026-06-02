@@ -1,3 +1,7 @@
+<p id="last-synced" hx-swap-oob="true" class="text-slate-400 text-sm mt-1">
+  Last synced: {{ synced_at }}
+</p>
+
 <div id="board" class="space-y-6">
   {% if error %}
   <div class="bg-red-900/30 border border-red-800 text-red-300 px-4 py-3 rounded-lg text-sm">
@@ -6,10 +10,22 @@
   {% elif result %}
   <div class="bg-emerald-900/30 border border-emerald-800 text-emerald-300 px-4 py-3 rounded-lg text-sm space-y-1">
     <div>
-      Synced {{ result.stored }} new emails ({{ result.scanned }} scanned, {{ result.candidates }} candidates)
-      {% if result.incremental %} · incremental{% endif %}
-      {% if synced_at %} · {{ synced_at }}{% endif %}
+      Synced {{ result.stored }} new email{% if result.stored != 1 %}s{% endif %}
+      ({{ result.scanned }} scanned, {{ result.candidates }} job-related candidates, {{ result.skipped_existing }} already imported)
+      {% if result.incremental %} · incremental{% else %} · full scan{% endif %}
     </div>
+    {% if total_applications %}
+    <div>{{ total_applications }} application{% if total_applications != 1 %}s{% endif %} on your board.</div>
+    {% else %}
+    <div>No applications on your board yet.</div>
+    {% endif %}
+    {% if result.stored == 0 and result.candidates == 0 and result.scanned == 0 %}
+    <div class="text-slate-300">No new Gmail activity since your last sync.</div>
+    {% elif result.stored == 0 and result.candidates > 0 %}
+    <div class="text-amber-300">Found job-related emails but none were classified as applications this run.</div>
+    {% elif result.stored == 0 %}
+    <div class="text-slate-300">Sync completed — nothing new to import.</div>
+    {% endif %}
     {% if result.errors %}
     <div class="text-amber-300">{{ result.errors }} email(s) could not be classified this run.</div>
     {% endif %}

@@ -13,9 +13,9 @@
   <div>
     <h1 class="text-2xl font-bold text-white">Applications</h1>
     {% if last_synced %}
-    <p class="text-slate-400 text-sm mt-1">Last synced: {{ last_synced }}</p>
+    <p id="last-synced" class="text-slate-400 text-sm mt-1">Last synced: {{ last_synced }}</p>
     {% else %}
-    <p class="text-slate-400 text-sm mt-1">Click Sync to import emails from Gmail</p>
+    <p id="last-synced" class="text-slate-400 text-sm mt-1">Click Sync to import emails from Gmail</p>
     {% endif %}
   </div>
   <button

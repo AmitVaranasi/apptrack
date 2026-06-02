@@ -77,6 +77,7 @@ async def sync_manual(request: Request, user_id: uuid.UUID = Depends(require_use
     ghosted_days = account["ghosted_after_days"] if account else get_settings().ghosted_after_days
     grouped = _group_applications(applications, ghosted_days)
     synced_at = _format_synced_at(account["last_synced_at"] if account else None)
+    total_applications = len(applications)
 
     response = templates.TemplateResponse(
         request,
@@ -87,6 +88,7 @@ async def sync_manual(request: Request, user_id: uuid.UUID = Depends(require_use
             "review_emails": review_emails,
             "result": result,
             "synced_at": synced_at,
+            "total_applications": total_applications,
         },
     )
     if synced_at:
