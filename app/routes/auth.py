@@ -5,7 +5,6 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 
 from app.auth.google_oauth import (
     encrypt_token,
@@ -17,9 +16,9 @@ from app.auth.google_oauth import (
 )
 from app.auth.session import clear_session, get_session_user_id, set_session
 from app import db
+from app.templating import templates
 
 router = APIRouter(tags=["auth"])
-templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
 
 def require_user(request: Request) -> uuid.UUID:
     user_id = get_session_user_id(request)

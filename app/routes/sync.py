@@ -2,20 +2,18 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
 
 from app.config import get_settings
 from app.domain.stages import STAGE_ORDER, STAGE_LABELS, is_ghosted
 from app.gmail.ingest import run_sync, run_sync_all
 from app import db
 from app.routes.auth import require_user
+from app.templating import templates
 
 router = APIRouter(tags=["sync"])
-templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
 
 
 def _group_applications(applications, ghosted_after_days: int) -> dict:
@@ -45,6 +43,26 @@ def _format_synced_at(value: datetime | None, cookie_value: str | None = None) -
 
 @router.post("/sync", response_class=HTMLResponse)
 async def sync_manual(request: Request, user_id: uuid.UUID = Depends(require_user)):
+    settings = get_settings()
+    account = await db.get_gmail_account(user_id)
+    if settings.sync_min_interval_seconds > 0 and account and account.get("last_synced_at"):
+        last_synced = account["last_synced_at"]
+        if last_synced.tzinfo is None:
+            last_synced = last_synced.replace(tzinfo=timezone.utc)
+        elapsed = (datetime.now(timezone.utc) - last_synced).total_seconds()
+        if elapsed < settings.sync_min_interval_seconds:
+            wait_seconds = int(settings.sync_min_interval_seconds - elapsed)
+            return templates.TemplateResponse(
+                request,
+                "partials/sync_result.html",
+                {
+                    "request": request,
+                    "error": f"Please wait {wait_seconds}s before syncing again.",
+                    "grouped": _group_applications([], settings.ghosted_after_days),
+                },
+                status_code=200,
+            )
+
     try:
         result = await run_sync(user_id)
     except Exception as exc:

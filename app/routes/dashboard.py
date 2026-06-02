@@ -1,20 +1,18 @@
 from __future__ import annotations
 
 import uuid
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 
 from app.config import get_settings
-from app.domain.stages import STAGE_ORDER, STAGE_LABELS, is_ghosted
+from app.domain.stages import STAGE_LABELS
 from app import db
 from app.routes.auth import require_user
 from app.routes.sync import _format_synced_at, _group_applications
+from app.templating import templates
 
 router = APIRouter(tags=["dashboard"])
-templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
 
 
 @router.get("/dashboard", response_class=HTMLResponse)

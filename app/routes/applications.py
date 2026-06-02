@@ -2,23 +2,17 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 
 from app.config import get_settings
 from app.domain.stages import STAGE_ORDER, STAGE_LABELS, is_ghosted
 from app import db
 from app.routes.auth import require_user
+from app.templating import templates
 
 router = APIRouter(tags=["applications"])
-templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
-
-
-def _gmail_link(message_id: str) -> str:
-    return f"https://mail.google.com/mail/u/0/#all/{message_id}"
 
 
 @router.post("/review/{email_id}/dismiss", response_class=HTMLResponse)
@@ -36,7 +30,6 @@ async def dismiss_review(
             "request": request,
             "review_emails": review_emails,
             "stage_labels": STAGE_LABELS,
-            "gmail_link": _gmail_link,
         },
     )
 
@@ -62,7 +55,6 @@ async def application_detail(
             "request": request,
             "app": app,
             "emails": emails,
-            "gmail_link": _gmail_link,
             "stage_labels": STAGE_LABELS,
             "is_ghosted": is_ghosted(app["current_stage"], app["last_updated"], ghosted_days),
         },
