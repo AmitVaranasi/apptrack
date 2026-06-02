@@ -14,10 +14,13 @@ from app.routes import applications, auth, dashboard, sync
 async def lifespan(app: FastAPI):
     try:
         await init_pool()
-    except RuntimeError:
+    except Exception:
         pass
     yield
-    await close_pool()
+    try:
+        await close_pool()
+    except Exception:
+        pass
 
 
 def create_app() -> FastAPI:
